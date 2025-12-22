@@ -1,10 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Dict
 import os
 from dotenv import load_dotenv
 from app.services.commerce_analysis import CommerceAnalysisService
+from app.services.real_estate_chat import RealEstateChatService
 
 load_dotenv()
 
@@ -21,6 +22,7 @@ app.add_middleware(
 
 # 서비스 초기화
 commerce_analysis_service = CommerceAnalysisService()
+real_estate_chat_service = RealEstateChatService()
 
 
 class CommerceAnalysisRequest(BaseModel):
@@ -32,6 +34,15 @@ class CommerceAnalysisRequest(BaseModel):
 
 class CommerceAnalysisResponse(BaseModel):
     report: str
+
+
+class RealEstateChatRequest(BaseModel):
+    message: str
+    conversation_history: Optional[List[Dict[str, str]]] = []
+
+
+class RealEstateChatResponse(BaseModel):
+    response: str
 
 
 @app.get("/health")
@@ -85,6 +96,24 @@ async def analyze_commerce(request: CommerceAnalysisRequest):
         traceback.print_exc()
         print("="*80 + "\n")
         sys.stdout.flush()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/real-estate-chat", response_model=RealEstateChatResponse)
+async def real_estate_chat(request: RealEstateChatRequest):
+    """
+    부동산 상식 챗봇과 대화
+    """
+    try:
+        response = real_estate_chat_service.chat(
+            message=request.message,
+            conversation_history=request.conversation_history
+        )
+        return RealEstateChatResponse(response=response)
+    except Exception as e:
+        print(f"부동산 챗봇 API 에러: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
