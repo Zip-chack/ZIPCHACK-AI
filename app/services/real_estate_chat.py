@@ -17,8 +17,8 @@ class RealEstateChatService:
             os.environ["OPENAI_API_BASE"] = "https://gms.ssafy.io/gmsapi/api.openai.com/v1"
             
             try:
-                self.model = init_chat_model("gpt-4o", model_provider="openai")
-                print("✓ RealEstateChatService 모델 초기화 성공 (gpt-4o)")
+                self.model = init_chat_model("gpt-4o-mini", model_provider="openai")
+                print("✓ RealEstateChatService 모델 초기화 성공 (gpt-4o-mini)")
             except Exception as e:
                 print(f"✗ RealEstateChatService 모델 초기화 실패: {e}")
                 self.model = None
