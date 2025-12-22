@@ -27,8 +27,8 @@ class CommerceAnalysisService:
             print("LangChain 모델 초기화 시도 중...")
             try:
                 # gpt-4o 사용
-                self.model = init_chat_model("gpt-4o", model_provider="openai")
-                print("✓ LangChain 모델 초기화 성공 (gpt-4o)")
+                self.model = init_chat_model("gpt-4o-mini", model_provider="openai")
+                print("✓ LangChain 모델 초기화 성공 (gpt-4o-mini)")
             except Exception as e:
                 print(f"✗ LangChain 모델 초기화 실패: {e}")
                 import traceback
