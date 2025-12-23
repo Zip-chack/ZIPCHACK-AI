@@ -43,7 +43,8 @@ class CommerceAnalysisService:
         lat: float, 
         lng: float, 
         radius: int, 
-        commerce_info: Dict[str, Any]
+        commerce_info: Dict[str, Any],
+        reviews: list = None
     ) -> str:
         """
         주변 상권 정보를 기반으로 AI 분석 레포트 생성 (LangChain 사용)
@@ -53,6 +54,7 @@ class CommerceAnalysisService:
         print("="*80)
         print(f"위도: {lat}, 경도: {lng}, 반경: {radius}m")
         print(f"상권 정보: {commerce_info}")
+        print(f"리뷰 개수: {len(reviews) if reviews else 0}")
         print(f"GMS_API_KEY 존재: {self.gms_api_key is not None}")
         print(f"모델 존재: {self.model is not None}")
         
@@ -63,7 +65,7 @@ class CommerceAnalysisService:
         
         try:
             # 프롬프트 생성
-            prompt = self._build_prompt(commerce_info, radius)
+            prompt = self._build_prompt(commerce_info, radius, reviews or [])
             
             print("\n" + "-"*80)
             print("생성된 프롬프트:")
@@ -121,36 +123,78 @@ class CommerceAnalysisService:
             print("기본 레포트로 대체합니다.\n")
             return self._generate_default_report(commerce_info, radius)
     
-    def _build_prompt(self, commerce_info: Dict[str, Any], radius: int) -> str:
+    def _build_prompt(self, commerce_info: Dict[str, Any], radius: int, reviews: list) -> str:
         """프롬프트 생성"""
-        prompt = f"""다음은 반경 {radius}m 내의 주변 상권 정보입니다:
+        prompt = f"""반경 {radius}m 내 주변 상권 정보:
 
-- 편의점: {commerce_info.get('convenienceStore', 0)}개
-- 카페: {commerce_info.get('cafe', 0)}개
-- 마트: {commerce_info.get('mart', 0)}개
-- 음식점: {commerce_info.get('restaurant', 0)}개
-- 약국: {commerce_info.get('pharmacy', 0)}개
-- 은행: {commerce_info.get('bank', 0)}개
-- 병원: {commerce_info.get('hospital', 0)}개
-- 지하철역: {commerce_info.get('subway', 0)}개
+• 편의점: {commerce_info.get('convenienceStore', 0)}개
+• 카페: {commerce_info.get('cafe', 0)}개
+• 마트: {commerce_info.get('mart', 0)}개
+• 음식점: {commerce_info.get('restaurant', 0)}개
+• 약국: {commerce_info.get('pharmacy', 0)}개
+• 은행: {commerce_info.get('bank', 0)}개
+• 병원: {commerce_info.get('hospital', 0)}개
+• 지하철역: {commerce_info.get('subway', 0)}개"""
+        
+        # 리뷰 데이터가 있으면 추가
+        if reviews and len(reviews) > 0:
+            # 리뷰 요약 정보 생성
+            total_reviews = len(reviews)
+            avg_rating = sum(r.get('ratingOverall', 0) for r in reviews if r.get('ratingOverall')) / total_reviews if total_reviews > 0 else 0
+            avg_noise = sum(r.get('ratingNoise', 0) for r in reviews if r.get('ratingNoise')) / total_reviews if total_reviews > 0 else 0
+            avg_landlord = sum(r.get('ratingLandlord', 0) for r in reviews if r.get('ratingLandlord')) / total_reviews if total_reviews > 0 else 0
+            avg_facility = sum(r.get('ratingFacility', 0) for r in reviews if r.get('ratingFacility')) / total_reviews if total_reviews > 0 else 0
+            
+            # 주요 리뷰 내용 추출 (최대 5개)
+            review_samples = reviews[:5]
+            review_contents = "\n".join([
+                f"- [{r.get('buildingName', '건물')}] {r.get('title', '')}: {r.get('content', '')[:100]}"
+                for r in review_samples if r.get('content')
+            ])
+            
+            prompt += f"""
 
-위 상권 정보를 바탕으로 이 지역의 상권 특징, 생활 편의성, 거주 적합성에 대해 상세하고 전문적인 분석을 제공해주세요.
+주변 거주자 리뷰 정보:
+• 총 리뷰 수: {total_reviews}개
+• 종합 평점: {avg_rating:.1f}/5.0
+• 소음 평점: {avg_noise:.1f}/5.0
+• 집주인 평점: {avg_landlord:.1f}/5.0
+• 시설 평점: {avg_facility:.1f}/5.0
 
-다음 형식으로 작성해주세요:
+주요 리뷰 내용:
+{review_contents if review_contents else "리뷰 내용 없음"}"""
+        
+        prompt += """
+
+위 상권 정보와 리뷰 데이터를 바탕으로 개조식으로 깔끔하게 분석해주세요.
 
 ### 상권 분석 결과
 
-(이 지역의 상권 특징, 생활 편의성, 거주 적합성에 대한 상세한 분석을 500-800자 정도로 작성해주세요. 각 시설의 개수와 분포를 고려하여 구체적이고 실용적인 인사이트를 제공해주세요. 예를 들어, 편의점이 많으면 야간 생활의 편의성, 카페가 많으면 주거 환경의 쾌적함, 지하철역이 있으면 교통 접근성 등을 구체적으로 설명해주세요.)
+다음 형식으로 작성해주세요:
 
-분석은 다음 항목을 포함해주세요:
-1. 상권 밀도 및 특징
-2. 생활 편의성 평가
-3. 교통 접근성
-4. 거주 적합성 종합 평가
+**1. 상권 밀도 및 특징**
+• (핵심 특징 2-3개를 간결하게)
 
-마크다운 형식으로 작성해주시고, 자연스럽고 읽기 쉬운 문체로 작성해주세요."""
+**2. 생활 편의성**
+• (주요 편의시설 활용도 및 생활 편의성 평가)
+
+**3. 교통 접근성**
+• (대중교통 및 이동 편의성)
+
+**4. 거주자 리뷰 기반 평가**
+• (리뷰 데이터가 있는 경우, 실제 거주 경험을 바탕으로 한 평가)
+
+**5. 거주 적합성 종합 평가**
+• (종합 평가 및 거주 추천도)
+
+**요구사항:**
+- 각 항목은 불릿 포인트(•)로 구분하여 작성
+- 간결하고 핵심적인 정보만 포함
+- 숫자와 데이터를 구체적으로 언급
+- 전문적이면서도 이해하기 쉬운 표현
+- 불필요한 수식어나 장황한 설명 제거"""
         
-        return f"당신은 부동산 상권 분석 전문가입니다. 주변 상권 정보를 분석하여 거주자에게 유용하고 상세한 인사이트를 제공합니다.\n\n{prompt}"
+        return f"당신은 부동산 상권 분석 전문가입니다. 주변 상권 정보를 분석하여 거주자에게 유용하고 실용적인 인사이트를 개조식으로 제공합니다.\n\n{prompt}"
     
     def _generate_default_report(self, commerce_info: Dict[str, Any], radius: int) -> str:
         """기본 레포트 생성"""

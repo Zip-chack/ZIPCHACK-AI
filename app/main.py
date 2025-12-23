@@ -30,6 +30,7 @@ class CommerceAnalysisRequest(BaseModel):
     lng: float
     radius: Optional[int] = 500
     commerce_info: dict
+    reviews: Optional[list] = []
 
 
 class CommerceAnalysisResponse(BaseModel):
@@ -78,7 +79,8 @@ async def analyze_commerce(request: CommerceAnalysisRequest):
             lat=request.lat,
             lng=request.lng,
             radius=request.radius,
-            commerce_info=request.commerce_info
+            commerce_info=request.commerce_info,
+            reviews=request.reviews or []
         )
         
         print("\n[2/3] generate_report 완료")
